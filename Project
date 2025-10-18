@@ -1,0 +1,323 @@
+package lab_project;
+
+import java.util.*;
+
+// ================== Base User Class ==================
+abstract class User {
+    String name;
+    String password;
+
+    public User(String name, String password) {
+        this.name = name;
+        this.password = password;
+    }
+
+    public boolean login(String name, String password) {
+        return this.name.equalsIgnoreCase(name) && this.password.equals(password);
+    }
+
+    public abstract void showMenu(Scanner sc, List<Question> questionBank, List<Student> students, List<Teacher> teachers);
+}
+
+// ================== Question Class ==================
+class Question {
+    String text;
+    String[] options;
+    char correctAnswer;
+
+    public Question(String text, String[] options, char correctAnswer) {
+        this.text = text;
+        this.options = options;
+        this.correctAnswer = Character.toLowerCase(correctAnswer);
+    }
+}
+
+// ================== Quiz Class ==================
+class Quiz {
+    List<Question> questions;
+    int timeLimitSeconds;
+
+    public Quiz(List<Question> questions, int timeLimitSeconds) {
+        this.questions = questions;
+        this.timeLimitSeconds = timeLimitSeconds;
+    }
+
+    public int conduct(Scanner sc) {
+        System.out.println("\n--- Quiz Started ---");
+        int score = 0;
+
+        for (Question q : questions) {
+            System.out.println("\n" + q.text);
+            for (String option : q.options) {
+                System.out.println(option);
+            }
+
+            // Start countdown in a separate thread
+            Thread timer = new Thread(() -> {
+                for (int i = timeLimitSeconds; i > 0; i--) {
+                    try {
+                        System.out.print("\r⏳ Time left: " + i + " sec   ");
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        return; // stop when interrupted
+                    }
+                }
+            });
+
+            timer.start();
+
+            System.out.print("\nYour answer (a/b/c/d): ");
+            char answer = sc.next().toLowerCase().charAt(0);
+
+            // Stop the countdown once user answers
+            timer.interrupt();
+
+            if (answer == q.correctAnswer) {
+                System.out.println("✅ Correct!");
+                score++;
+            } else {
+                System.out.println("❌ Incorrect! Correct answer was: " + q.correctAnswer);
+            }
+        }
+
+        System.out.println("\n--- Quiz Ended ---");
+        System.out.println("You scored " + score + " out of " + questions.size());
+        return score;
+    }
+}
+
+// ================== Student Class ==================
+class Student extends User {
+    int score;
+
+    public Student(String name, String password) {
+        super(name, password);
+    }
+
+    public void takeQuiz(Quiz quiz, Scanner sc) {
+        score = quiz.conduct(sc);
+    }
+
+    @Override
+    public void showMenu(Scanner sc, List<Question> questionBank, List<Student> students, List<Teacher> teachers) {
+        System.out.println("\n--- Student Portal ---");
+        Quiz quiz = new Quiz(questionBank, 30); // 30 sec per question
+        takeQuiz(quiz, sc);
+    }
+}
+
+// ================== Teacher Class ==================
+class Teacher extends User {
+    public Teacher(String name, String password) {
+        super(name, password);
+    }
+
+    @Override
+    public void showMenu(Scanner sc, List<Question> questionBank, List<Student> students, List<Teacher> teachers) {
+        while (true) {
+            System.out.println("\n--- Teacher Portal ---");
+            System.out.println("1. Add Question");
+            System.out.println("2. View All Questions");
+            System.out.println("3. Back to Main Menu");
+            System.out.print("Enter choice: ");
+            int choice = sc.nextInt();
+            sc.nextLine();
+
+            if (choice == 1) {
+                System.out.print("Enter question: ");
+                String text = sc.nextLine();
+                String[] options = new String[4];
+                char[] labels = {'a', 'b', 'c', 'd'};
+                for (int i = 0; i < 4; i++) {
+                    System.out.print("Option " + labels[i] + ": ");
+                    options[i] = labels[i] + ". " + sc.nextLine();
+                }
+                System.out.print("Enter correct answer (a/b/c/d): ");
+                char ans = sc.next().charAt(0);
+                questionBank.add(new Question(text, options, ans));
+                System.out.println("✅ Question added!");
+            } else if (choice == 2) {
+                System.out.println("\n--- Question Bank ---");
+                for (int i = 0; i < questionBank.size(); i++) {
+                    System.out.println((i + 1) + ". " + questionBank.get(i).text);
+                }
+            } else {
+                break;
+            }
+        }
+    }
+}
+
+// ================== Admin Class ==================
+class Admin extends User {
+    public Admin(String name, String password) {
+        super(name, password);
+    }
+
+    @Override
+    public void showMenu(Scanner sc, List<Question> questionBank, List<Student> students, List<Teacher> teachers) {
+        while (true) {
+            System.out.println("\n--- Admin Portal ---");
+            System.out.println("1. View All Students and Scores");
+            System.out.println("2. Reset Question Bank");
+            System.out.println("3. Add Student");
+            System.out.println("4. Add Teacher");
+            System.out.println("5. Back to Main Menu");
+            System.out.print("Enter choice: ");
+            int choice = sc.nextInt();
+            sc.nextLine();
+
+            if (choice == 1) {
+                System.out.println("\n--- Results ---");
+                for (Student s : students) {
+                    System.out.println(s.name + ": " + s.score);
+                }
+            } else if (choice == 2) {
+                questionBank.clear();
+                System.out.println("✅ Question bank reset!");
+            } else if (choice == 3) {
+                System.out.print("Enter new student name: ");
+                String sname = sc.nextLine();
+                System.out.print("Enter password: ");
+                String spass = sc.nextLine();
+                students.add(new Student(sname, spass));
+                System.out.println("✅ Student added!");
+            } else if (choice == 4) {
+                System.out.print("Enter new teacher name: ");
+                String tname = sc.nextLine();
+                System.out.print("Enter password: ");
+                String tpass = sc.nextLine();
+                teachers.add(new Teacher(tname, tpass));
+                System.out.println("✅ Teacher added!");
+            } else {
+                break;
+            }
+        }
+    }
+}
+
+// ================== Main Class ==================
+public class lab_project {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        // Question bank
+        List<Question> questionBank = new ArrayList<>();
+        questionBank.add(new Question(
+                "What is the default value of a boolean variable in Java?",
+                new String[]{"a. true\r\n"
+                		+ "b. false\r\n"
+                		+ "c. 0\r\n"
+                		+ "d. null"},
+                'b' // correct answer
+        ));
+        questionBank.add(new Question(
+        	    "Which language is used for web apps?",
+        	    new String[]{
+        	        "a. Python",
+        	        "b. JavaScript",
+        	        "c. Java",
+        	        "d. C++"
+        	    },
+        	    'b'  // correct answer
+
+        ));
+        questionBank.add(new Question(
+                "Which of the following is used to inherit a class in Java?",
+                new String[]{"a. implement\r\n"
+                		+ "b. inherits\r\n"
+                		+ "c. extends\r\n"
+                		+ "d. super"},
+                'c' // correct answer
+        ));
+
+        // Users
+        List<Student> students = new ArrayList<>();
+        List<Teacher> teachers = new ArrayList<>();
+        List<Admin> admins = new ArrayList<>();
+
+        // Default teachers
+        teachers.add(new Teacher("MD Hira", "3113"));
+        teachers.add(new Teacher("Nargis Jahan Lisa", "3112"));
+        teachers.add(new Teacher("Austami Deb", "2201"));
+        teachers.add(new Teacher("Rezwana Afrin", "3121"));
+
+        // Default students
+        students.add(new Student("Proyas", "002"));
+        students.add(new Student("Biplob", "003"));
+        students.add(new Student("Mashrafi", "005"));
+        students.add(new Student("Jihan", "016"));
+        students.add(new Student("Rabbi", "026"));
+        students.add(new Student("Sayeed", "008"));
+        students.add(new Student("Sami", "192"));
+
+        // Default admin
+        admins.add(new Admin("Taj Uddin", "1221"));
+
+        while (true) {
+            System.out.println("\nLeading University Exam Portal");
+            System.out.println("1. Login as Student");
+            System.out.println("2. Login as Teacher");
+            System.out.println("3. Login as Admin");
+            System.out.println("4. Exit");
+            System.out.print("Enter choice: ");
+            int choice = sc.nextInt();
+            sc.nextLine();
+
+            if (choice == 1) {
+                System.out.print("Enter name: ");
+                String name = sc.nextLine();
+                System.out.print("Enter password: ");
+                String password = sc.nextLine();
+
+                boolean found = false;
+                for (Student s : students) {
+                    if (s.login(name, password)) {
+                        s.showMenu(sc, questionBank, students, teachers);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) System.out.println("❌ Invalid Student login!");
+
+            } else if (choice == 2) {
+                System.out.print("Enter name: ");
+                String name = sc.nextLine();
+                System.out.print("Enter password: ");
+                String password = sc.nextLine();
+
+                boolean found = false;
+                for (Teacher t : teachers) {
+                    if (t.login(name, password)) {
+                        t.showMenu(sc, questionBank, students, teachers);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) System.out.println("❌ Invalid Teacher login!");
+
+            } else if (choice == 3) {
+                System.out.print("Enter name: ");
+                String name = sc.nextLine();
+                System.out.print("Enter password: ");
+                String password = sc.nextLine();
+
+                boolean found = false;
+                for (Admin a : admins) {
+                    if (a.login(name, password)) {
+                        a.showMenu(sc, questionBank, students, teachers);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) System.out.println("❌ Invalid Admin login!");
+
+            } else {
+                System.out.println("Exiting... Goodbye!");
+                break;
+            }
+        }
+
+        sc.close();
+    }
+}
